@@ -2,32 +2,80 @@
 
 import cmd
 import time
+import collections
+import sys
+import os
+import inspect
+
 import powercmd
+
+class NshMsg(object):
+    def summary(self): raise NotImplementedError()
+    def details(self): raise NotImplementedError()
+    def to_test_case(self): raise NotImplementedError()
+
+Cmd = collections.namedtuple('Cmd', ['cmd'])
+Send = collections.namedtuple('Send', ['msg'])
+Recv = collections.namedtuple('Recv', ['msg'])
 
 class NshCmds(object):
     def init(self): pass
     def cleanup(self): pass
     def try_read(self): pass
 
+    def write_test_case_init(self, f): pass
+    def write_test_case_cleanup(self, f): pass
+
 class Nsh(powercmd.Cmd, NshCmds):
     def __init__(self, module):
+        powercmd.Cmd.__init__(self)
+
+        self.history = []
         self.curr_mod = '(none)'
         self.set_prompt('(none)')
 
-        self.do_load(module)
+        self.do_nsh_mod(module)
 
     def set_prompt(self, extra_text=None):
         extra_text = ' %s' % (extra_text,) if extra_text else ''
         self.prompt = '[%s]%s $ ' % (self.curr_mod, extra_text)
 
-    def do_load(self,
-                mod_name=(str, powercmd.Required)):
+    def do_nsh_reset(self):
+        "Clears command history."
+        self.history = []
+
+    def do_nsh_save(self,
+                    filename=(str, '/tmp/nsh-save')):
+        "Saves command history to a test case file."
+
+        with open(filename, 'w') as f:
+            self.write_test_case_init(f);
+
+            for entry in self.history:
+                if isinstance(entry, Cmd):
+                    f.write('# %s\n' % (entry.cmd,))
+                elif (isinstance(entry, Send)
+                      or isinstance(entry, Recv)):
+                    f.write(entry.msg.to_test_case(type(entry)))
+                    f.write('\n')
+                else:
+                    print('unexpected history entry: %s' % (entry,))
+
+            self.write_test_case_cleanup(f)
+
+        print('saved to %s' % (filename,))
+
+    def do_nsh_mod(self,
+                   mod_name=(str, powercmd.Required)):
         "Loads a specific protocol connector."
 
         print('loading module %s' % (mod_name,))
         self.curr_mod = mod_name
 
+        sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors'))
         mod = __import__(mod_name)
+        sys.path.pop()
+
         bases = tuple([c for c in mod.__dict__.values()
                        if isinstance(c, type) and issubclass(c, NshCmds)])
 
@@ -45,7 +93,29 @@ class Nsh(powercmd.Cmd, NshCmds):
 
         self.set_prompt()
 
+    def do_nsh_details(self,
+                       idx=(int, 1)):
+        "Displays details of a recent message."
+
+        for entry in reversed(self.history):
+            if (isinstance(entry, Recv)
+                    or isinstance(entry, Send)):
+                idx -= 1
+                if idx <= 0:
+                    print('\n*** %s ***' % (entry.__class__.__name__))
+                    print(entry.msg.details())
+                    return
+
+        print('message not found')
+
+    def precmd(self, cmdline):
+        cmdline = cmdline.strip()
+        if cmdline.startswith('/'):
+            cmdline = 'nsh_' + cmdline[1:]
+        else:
+            self.history.append(Cmd(cmdline))
+
+        return powercmd.Cmd.precmd(self, cmdline)
+
     def emptyline(self):
-        msg = self.try_read()
-        if msg:
-            print(msg)
+        self.try_read()

@@ -5,6 +5,7 @@ import copy
 import inspect
 import re
 import shlex
+import collections
 
 class Required(object): pass
 
@@ -74,7 +75,11 @@ class Cmd(cmd.Cmd):
                 raise Cmd.CancelCmd('cannot assign free argument to %s: '
                                     'argument already present' % (name,))
 
-            result[name] = value
+            ctor, _ = formal[name]
+            try:
+                result[name] = ctor(value)
+            except ValueError as e:
+                raise Cmd.CancelCmd(e)
 
         return result
 
@@ -141,7 +146,7 @@ class Cmd(cmd.Cmd):
             return cmd, cmds[cmd]
         elif len(matches) > 1:
             raise Cmd.CancelCmd('ambigious command: %s (possible: %s)'
-                                % (cmdline, ' '.join(matches)))
+                                % (short_cmd, ' '.join(matches)))
         else:
             return matches[0], cmds[matches[0]]
 
@@ -149,15 +154,20 @@ class Cmd(cmd.Cmd):
         return self.default(cmdline)
 
     def default(self, cmdline):
+        if not cmdline:
+            return self.emptyline()
+
         cmd, args, free = Cmd._split_cmdline(cmdline)
 
         try:
             name, handler = self._expand_cmd(cmd)
+            if name != cmd:
+                print('* executing cmd: %s' % (name,))
 
             arg_spec = inspect.getargspec(handler)
             defaults = arg_spec.defaults or []
-            formal = dict(zip(arg_spec.args[1:], # skip 'self'
-                              defaults))
+            formal = collections.OrderedDict(zip(arg_spec.args[1:], # skip 'self'
+                                                 defaults))
 
             parsed_args, extra_free = Cmd._parse_args(formal, args)
             parsed_args = Cmd._assign_free_args(formal, parsed_args,
