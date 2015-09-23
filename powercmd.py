@@ -55,6 +55,8 @@ class Cmd(cmd.Cmd):
             else:
                 ctor, _ = formal[name]
                 try:
+                    if ctor is bytes:
+                        ctor = lambda v: bytes(v, 'ascii')
                     parsed_args[name] = ctor(value)
                 except ValueError as e:
                     raise Cmd.CancelCmd(e)
