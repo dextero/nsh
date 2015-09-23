@@ -6,6 +6,55 @@ import inspect
 import re
 import shlex
 import collections
+import os
+
+def prefixes_of(s):
+    for n in range(len(s)):
+        yield s[n:]
+
+def _matches_words(s, words):
+    if not s:
+        return True
+
+    for word in words:
+        common_prefix = os.path.commonprefix([s, word])
+        if not common_prefix:
+            return False
+        elif common_prefix == s:
+            return True
+
+        for prefix in prefixes_of(common_prefix):
+            if _matches_words(s[len(prefix):], words[1:]):
+                return True
+    return False
+
+def snake_case_matches(short, full):
+    return _matches_words(short, full.split('_'))
+
+def fuzzy_matches(short, full):
+    at = 0
+    for c in full:
+        if c == short[at]:
+            at += 1
+            if at == len(short):
+                return True
+    return False
+
+def match_string(s, possible):
+    match_strategies = [
+        ('exact match',      lambda a, b: a == b),
+        ('prefix match',     lambda short, full: full.startswith(short)),
+        ('snake case match', snake_case_matches),
+        ('fuzzy match',      fuzzy_matches)
+    ]
+
+    for name, match in match_strategies:
+        matches = sorted([e for e in possible if match(s, e)])
+        if matches:
+            print('* %s: %s' % (name, ' '.join(matches)))
+            return matches
+
+    return []
 
 class Required(object): pass
 
@@ -112,7 +161,7 @@ class Cmd(cmd.Cmd):
         cmd, handler = self._expand_cmd(cmd)
 
         arg_spec = inspect.getargspec(handler)
-        matches = [e for e in arg_spec.args[1:] if e.startswith(text)]
+        matches = match_string(text, arg_spec.args[1:])
         return [x + '=' for x in matches]
 
     def do_help(self, topic=(str, '')):
@@ -138,9 +187,10 @@ class Cmd(cmd.Cmd):
         return dict((k[len(Cmd.CMD_PREFIX):], v) for k, v in inspect.getmembers(self)
                     if (inspect.ismethod(v)
                         and k.startswith(Cmd.CMD_PREFIX)))
+
     def _expand_cmd(self, short_cmd):
         cmds = self._get_all_cmds()
-        matches = sorted([e for e in cmds if e.startswith(short_cmd)])
+        matches = match_string(short_cmd, cmds)
 
         if not matches:
             raise Cmd.CancelCmd('no such command: %s' % (short_cmd,))
