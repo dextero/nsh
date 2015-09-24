@@ -40,7 +40,7 @@ def fuzzy_matches(short, full):
                 return True
     return False
 
-def match_string(s, possible):
+def match_string(s, possible, quiet=False):
     match_strategies = [
         ('exact match',      lambda a, b: a == b),
         ('prefix match',     lambda short, full: full.startswith(short)),
@@ -51,7 +51,8 @@ def match_string(s, possible):
     for name, match in match_strategies:
         matches = sorted([e for e in possible if match(s, e)])
         if matches:
-            print('* %s: %s' % (name, ' '.join(matches)))
+            if not quiet:
+                print('* %s: %s' % (name, ' '.join(matches)))
             return matches
 
     return []
@@ -158,10 +159,10 @@ class Cmd(cmd.Cmd):
             return
 
         cmd = shlex.split(line)[0]
-        cmd, handler = self._expand_cmd(cmd)
+        cmd, handler = self._expand_cmd(cmd, quiet=True)
 
         arg_spec = inspect.getargspec(handler)
-        matches = match_string(text, arg_spec.args[1:])
+        matches = match_string(text, arg_spec.args[1:], quiet=True)
         return [x + '=' for x in matches]
 
     def do_help(self, topic=(str, '')):
@@ -188,9 +189,9 @@ class Cmd(cmd.Cmd):
                     if (inspect.ismethod(v)
                         and k.startswith(Cmd.CMD_PREFIX)))
 
-    def _expand_cmd(self, short_cmd):
+    def _expand_cmd(self, short_cmd, quiet=False):
         cmds = self._get_all_cmds()
-        matches = match_string(short_cmd, cmds)
+        matches = match_string(short_cmd, cmds, quiet)
 
         if not matches:
             raise Cmd.CancelCmd('no such command: %s' % (short_cmd,))
@@ -213,9 +214,6 @@ class Cmd(cmd.Cmd):
 
         try:
             name, handler = self._expand_cmd(cmd)
-            if name != cmd:
-                print('* executing cmd: %s' % (name,))
-
             arg_spec = inspect.getargspec(handler)
             defaults = arg_spec.defaults or []
             formal = collections.OrderedDict(zip(arg_spec.args[1:], # skip 'self'
