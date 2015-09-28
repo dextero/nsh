@@ -118,4 +118,5 @@ class Nsh(powercmd.Cmd, NshCmds):
         return powercmd.Cmd.precmd(self, cmdline)
 
     def emptyline(self):
-        self.try_read()
+        while self.try_read():
+            pass
