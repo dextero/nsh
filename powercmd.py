@@ -7,6 +7,7 @@ import re
 import shlex
 import collections
 import os
+import string
 
 def prefixes_of(s):
     for n in range(len(s)):
@@ -154,6 +155,19 @@ class Cmd(cmd.Cmd):
                     and default is Required):
                 raise Cmd.CancelCmd('missing required argument: %s' % (name,))
 
+    def complete_impl(self, text, line, possibilities):
+        words = line.strip().split()
+        if words and '=' in words[-1] and line[-1] not in string.whitespace:
+            try:
+                key, val = words[-1].split('=', maxsplit=1)
+                if len(possibilities[key]) > 0:
+                    return match_string(val, possibilities[key], quiet=True)
+            except ValueError:
+                print('ValueError')
+
+        matches = match_string(text, possibilities, quiet=True)
+        return [x + '=' for x in matches]
+
     def completedefault(self, text, line, begidx, endidx):
         if re.match(r'^[^=]+=', text):
             return
@@ -162,8 +176,7 @@ class Cmd(cmd.Cmd):
         cmd, handler = self._expand_cmd(cmd, quiet=True)
 
         arg_spec = inspect.getargspec(handler)
-        matches = match_string(text, arg_spec.args[1:], quiet=True)
-        return [x + '=' for x in matches]
+        return self.complete_impl(text, line, arg_spec.args[1:])
 
     def do_help(self, topic=(str, '')):
         try:
