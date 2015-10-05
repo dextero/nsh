@@ -6,6 +6,7 @@ import collections
 import sys
 import os
 import inspect
+import imp
 
 import powercmd
 
@@ -17,6 +18,18 @@ class NshMsg(object):
 Cmd = collections.namedtuple('Cmd', ['cmd'])
 Send = collections.namedtuple('Send', ['msg'])
 Recv = collections.namedtuple('Recv', ['msg'])
+
+class TempCwd(object):
+    def __init__(self, new_cwd):
+        self.new_cwd = new_cwd
+        self.old_cwd = None
+
+    def __enter__(self):
+        self.old_cwd = os.getcwd()
+        os.chdir(self.new_cwd)
+
+    def __exit__(self, exc_type, exc_val, exc_traceback):
+        os.chdir(self.old_cwd)
 
 class NshCmds(object):
     def init(self): pass
@@ -70,11 +83,16 @@ class Nsh(powercmd.Cmd, NshCmds):
         "Loads a specific protocol connector."
 
         print('loading module %s' % (mod_name,))
-        self.curr_mod = mod_name
+        mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors')
+        sys.path.insert(0, mod_path)
+        try:
+            mod = __import__(mod_name)
+        finally:
+            sys.path.pop(0)
 
-        sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors'))
-        mod = __import__(mod_name)
-        sys.path.pop()
+        if not mod:
+            raise powercmd.Cmd.CancelCmd('cannot load module: %s' % mod_name)
+        self.curr_mod = mod_name
 
         bases = tuple([c for c in mod.__dict__.values()
                        if isinstance(c, type) and issubclass(c, NshCmds)])

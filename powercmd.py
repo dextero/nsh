@@ -41,14 +41,7 @@ def fuzzy_matches(short, full):
                 return True
     return False
 
-def match_string(s, possible, quiet=False):
-    match_strategies = [
-        ('exact match',      lambda a, b: a == b),
-        ('prefix match',     lambda short, full: full.startswith(short)),
-        ('snake case match', snake_case_matches),
-        ('fuzzy match',      fuzzy_matches)
-    ]
-
+def _match_string(s, possible, match_strategies, quiet):
     for name, match in match_strategies:
         matches = sorted([e for e in possible if match(s, e)])
         if matches:
@@ -57,6 +50,22 @@ def match_string(s, possible, quiet=False):
             return matches
 
     return []
+
+def simple_match_string(s, possible):
+    match_strategies = [
+        ('exact match',      lambda a, b: a == b),
+        ('prefix match',     lambda short, full: full.startswith(short))
+    ]
+    return _match_string(s, possible, match_strategies, quiet=False)
+
+def match_string(s, possible, quiet=False):
+    match_strategies = [
+        ('exact match',      lambda a, b: a == b),
+        ('prefix match',     lambda short, full: full.startswith(short)),
+        ('snake case match', snake_case_matches),
+        ('fuzzy match',      fuzzy_matches)
+    ]
+    return _match_string(s, possible, match_strategies, quiet=quiet)
 
 class Required(object): pass
 
