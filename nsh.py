@@ -7,6 +7,7 @@ import sys
 import os
 import inspect
 import imp
+from typing import Mapping
 
 import powercmd
 
@@ -47,18 +48,23 @@ class Nsh(powercmd.Cmd, NshCmds):
         self.curr_mod = '(none)'
         self.set_prompt('(none)')
 
-        self.do_nsh_mod(module)
+        self.nsh_mod(module)
+
+    def get_command_prefixes(self) -> Mapping[str, str]:
+        prefixes = powercmd.Cmd.get_command_prefixes(self)
+        prefixes.update({'nsh_': '/'})
+        return prefixes
 
     def set_prompt(self, extra_text=None):
         extra_text = ' %s' % (extra_text,) if extra_text else ''
         self.prompt = '[%s]%s $ ' % (self.curr_mod, extra_text)
 
-    def do_nsh_reset(self):
+    def nsh_reset(self):
         "Clears command history."
         self.history = []
 
-    def do_nsh_save(self,
-                    filename: str = '/tmp/nsh-save'):
+    def nsh_save(self,
+                 filename: str='/tmp/nsh-save'):
         "Saves command history to a test case file."
 
         with open(filename, 'w') as f:
@@ -78,8 +84,8 @@ class Nsh(powercmd.Cmd, NshCmds):
 
         print('saved to %s' % (filename,))
 
-    def do_nsh_mod(self,
-                   mod_name=(str, powercmd.Required)):
+    def nsh_mod(self,
+                mod_name: str):
         "Loads a specific protocol connector."
 
         print('loading module %s' % (mod_name,))
@@ -100,7 +106,9 @@ class Nsh(powercmd.Cmd, NshCmds):
         for base in bases:
             for name, member in base.__dict__.items():
                 if name.startswith('do_'):
-                    args = ' '.join(inspect.getargspec(member)[0][1:])
+                    params = inspect.signature(member).parameters
+                    args_list = list('%s: %s' % (name, p.annotation.__name__) for name, p in params.items())
+                    args = ', '.join(args_list[1:])
                     print('  %s %s' % (name[3:], args))
 
         class NshSubclass(Nsh): pass
@@ -111,8 +119,8 @@ class Nsh(powercmd.Cmd, NshCmds):
 
         self.set_prompt()
 
-    def do_nsh_details(self,
-                       idx=(int, 1)):
+    def nsh_details(self,
+                    idx: int=1):
         "Displays details of a recent message."
 
         for entry in reversed(self.history):
@@ -125,15 +133,6 @@ class Nsh(powercmd.Cmd, NshCmds):
                     return
 
         print('message not found')
-
-    def precmd(self, cmdline):
-        cmdline = cmdline.strip()
-        if cmdline.startswith('/'):
-            cmdline = 'nsh_' + cmdline[1:]
-        else:
-            self.history.append(Cmd(cmdline))
-
-        return powercmd.Cmd.precmd(self, cmdline)
 
     def emptyline(self):
         while self.try_read():
