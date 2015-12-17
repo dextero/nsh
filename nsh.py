@@ -58,7 +58,7 @@ class Nsh(powercmd.Cmd, NshCmds):
         self.history = []
 
     def do_nsh_save(self,
-                    filename=(str, '/tmp/nsh-save')):
+                    filename: str = '/tmp/nsh-save'):
         "Saves command history to a test case file."
 
         with open(filename, 'w') as f:
