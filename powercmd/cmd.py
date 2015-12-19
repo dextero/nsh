@@ -1,3 +1,7 @@
+"""
+powercmd - A generic class to build typesafe line-oriented command interpreters.
+"""
+
 import cmd
 import collections
 import copy
@@ -6,44 +10,97 @@ import re
 import shlex
 import string
 
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, List, Mapping, Sequence
 from extra_typing import OrderedMapping
 
+from match_string import match_string
+from command_invocation import CommandInvocation
+
 class Cmd(cmd.Cmd):
-    class CancelCmd(Exception):
+    """
+    A simple framework for writing typesafe line-oriented command interpreters.
+    """
+    class SyntaxError(Exception):
+        """An error raised if the input cannot be parsed as a valid command."""
         pass
 
-    def do_exit(self):
-        print('exiting')
-        return True
+    # pylint: disable=no-self-use
+    def get_command_prefixes(self):
+        """
+        Returns a mapping {method_command_prefix -> input_string_prefix}.
+        input_string_prefix is a prefix of a command typed in the command line,
+        method_command_prefix is the prefix for a matching command.
 
-    def do_EOF(self):
-        print('')
-        return self.do_exit()
+        If this function returns {'do_': ''}, then all methods whose names start
+        with 'do_' will be available as commands with the same names, i.e.
+        typing 'foo' will execute 'do_foo'.
+        If it returned {'do_', '!'}, then one has to type '!foo' in order to
+        execute 'do_foo'.
+        """
+        return {'do_': ''}
 
+    # pylint: disable=no-self-use
     def get_constructor(self,
                         annotation: Any) -> Callable[[str], Any]:
         """
         Returns a callable that parses a string and returns an object of an
-        appropriate type.
+        appropriate type defined by the ANNOTATION.
         """
-        def ensure_callable(x):
-            if not callable(x):
-                raise TypeError('invalid type: ' + repr(annotation))
-            return x
+        def ensure_callable(arg):
+            """Raises an exception if the argument is not callable."""
+            if not callable(arg):
+                raise TypeError('invalid type: ' + repr(arg))
+            return arg
 
         return {
             bytes: lambda text: bytes(text, 'ascii')
         }.get(annotation, ensure_callable(annotation))
 
+    def do_exit(self):
+        """Terminates the command loop."""
+        print('exiting')
+        return True
+
+    # pylint: disable=invalid-name
+    def do_EOF(self):
+        """Terminates the command loop."""
+        print('')
+        return self.do_exit()
+
+    def do_help(self,
+                topic: str=''):
+        """Displays a description of given command."""
+        all_handlers = self._get_all_commands()
+
+        try:
+            handler = self._choose_cmd_handler(all_handlers, topic)
+
+            arg_spec = list(inspect.signature(handler).parameters.items())
+            arg_spec.pop(0) # skip 'self'
+            args_with_defaults = list((name, param.default) for name, param in arg_spec)
+
+            print('usage: %s %s'
+                  % (topic,
+                     ' '.join('%s=%s' % (arg, repr(default))
+                              if default is not inspect.Parameter.empty
+                              else str(arg)
+                              for arg, default in args_with_defaults)))
+        except Cmd.SyntaxError:
+            print('no such command: %s' % (topic,))
+            print('available commands: %s' % (' '.join(sorted(all_handlers)),))
+
     def _construct_arg(self,
                        formal_param: inspect.Parameter,
                        value: str) -> Any:
-            ctor = self.get_constructor(formal_param.annotation)
-            try:
-                return ctor(value)
-            except ValueError as e:
-                raise Cmd.CancelCmd(e)
+        """
+        Constructs an argument from string VALUE, with the type defined by an
+        annotation to the FORMAL_PARAM.
+        """
+        ctor = self.get_constructor(formal_param.annotation)
+        try:
+            return ctor(value)
+        except ValueError as e:
+            raise Cmd.SyntaxError(e)
 
     def _construct_args(self,
                         formal: OrderedMapping[str, inspect.Parameter],
@@ -60,6 +117,8 @@ class Cmd(cmd.Cmd):
             if name not in formal:
                 print('unrecognized argument: %s' % (name,))
                 extra_free.append('%s=%s' % (name, value))
+            elif name in typed_args:
+                raise Cmd.SyntaxError('duplicate value for argument: %s' % (name,))
             else:
                 typed_args[name] = self._construct_arg(formal[name], value)
 
@@ -72,15 +131,19 @@ class Cmd(cmd.Cmd):
                           formal: OrderedMapping[str, inspect.Parameter],
                           actual: OrderedMapping[str, str],
                           free: Sequence[str]) -> Mapping[str, str]:
+        """
+        Returns the ACTUAL dict extended by initial FORMAL arguments matched to
+        FREE values.
+        """
         if len(free) > len(formal):
-            raise Cmd.CancelCmd('too many free arguments: expected at most %d'
-                                % (len(formal),))
+            raise Cmd.SyntaxError('too many free arguments: expected at most %d'
+                                  % (len(formal),))
 
         result = copy.deepcopy(actual)
         for name, value in zip(formal, free):
             if name in result:
-                raise Cmd.CancelCmd('cannot assign free argument to %s: '
-                                    'argument already present' % (name,))
+                raise Cmd.SyntaxError('cannot assign free argument to %s: '
+                                      'argument already present' % (name,))
 
             result[name] = self._construct_arg(formal[name], value)
 
@@ -89,6 +152,10 @@ class Cmd(cmd.Cmd):
     @staticmethod
     def _fill_default_args(formal: Mapping[str, inspect.Parameter],
                            actual: Mapping[str, str]):
+        """
+        Returns the ACTUAL dict extended by default values of unassigned FORMAL
+        parameters.
+        """
         result = copy.deepcopy(actual)
         for name, param in formal.items():
             if (name not in result
@@ -97,7 +164,10 @@ class Cmd(cmd.Cmd):
 
         return result
 
-    def complete_impl(self, text, line, possibilities):
+    def _complete_impl(self, line, possibilities):
+        """
+        Returns the list of possible tab-completions for given LINE.
+        """
         words = line.strip().split()
         if words and '=' in words[-1] and line[-1] not in string.whitespace:
             try:
@@ -107,64 +177,48 @@ class Cmd(cmd.Cmd):
             except ValueError:
                 print('ValueError')
 
-        matches = match_string(text, possibilities, quiet=True)
+        matches = match_string(words[-1], possibilities, quiet=True)
         return [x + '=' for x in matches]
 
-    def completedefault(self, text, line, begidx, endidx):
-        if re.match(r'^[^=]+=', text):
+    # python3.5 implements completedefault arguments as *ignored
+    # pylint: disable=arguments-differ,unused-argument
+    def completedefault(self,
+                        word_under_cursor: str,
+                        line: str,
+                        word_begidx: int,
+                        word_endidx: int) -> List[str]:
+        """
+        Returns a list of possible tab-completions for currently typed command.
+        """
+        if re.match(r'^[^=]+=', word_under_cursor):
             return
 
         command = shlex.split(line)[0]
-        handler = self._get_cmd_handler(command, quiet=True)
+        all_commands = self._get_all_commands()
+        handler = self._choose_cmd_handler(all_commands, command, quiet=True)
 
-        arg_spec = inspect.getargspec(handler)
-        return self.complete_impl(text, line, arg_spec.args[1:])
-
-    def do_help(self,
-                topic: str=''):
-        all_handlers = self._get_all_commands()
-
-        try:
-            handler = self._choose_cmd_handler(all_handlers, topic)
-
-            arg_spec = inspect.getargspec(handler)
-            defaults = arg_spec.defaults or []
-            args_with_defaults = list(zip(arg_spec.args[1:], # skip 'self'
-                                          (default for _, default in defaults)))
-
-            print('usage: %s %s'
-                  % (topic.__name__,
-                     ' '.join('%s=%s' % (arg, repr(default))
-                              if default is not Cmd.Required else str(arg)
-                              for arg, default in args_with_defaults)))
-        except Cmd.CancelCmd:
-            print('no such command: %s' % (topic,))
-            print('available commands: %s' % (' '.join(sorted(all_handlers)),))
-
-    def get_command_prefixes(self):
-        """
-        Returns a mapping {method_command_prefix -> input_string_prefix}.
-        input_string_prefix is a prefix of a command typed in the command line,
-        method_command_prefix is the prefix for a matching command.
-
-        If this function returns {'do_': ''}, then all methods whose names start
-        with 'do_' will be available as commands with the same names, i.e.
-        typing 'foo' will execute 'do_foo'.
-        If it returned {'do_', '!'}, then one has to type '!foo' in order to
-        execute 'do_foo'.
-        """
-        return {'do_': ''}
+        arg_spec = list(inspect.signature(handler).parameters.items())
+        return self._complete_impl(line, arg_spec[1:])
 
     def _get_all_commands(self) -> Mapping[str, Callable]:
+        """Returns all defined commands."""
         import types
 
         def unbind(f):
+            """
+            Returns the base function if the argument is a bound one.
+            https://bugs.python.org/msg166144
+            """
+            if not callable(f):
+                raise TypeError('%s is not callable'  % (repr(f),))
+
             self = getattr(f, '__self__', None)
             if self is not None and not isinstance(self, types.ModuleType) \
                                 and not isinstance(self, type):
                 if hasattr(f, '__func__'):
                     return f.__func__
                 return getattr(type(f.__self__), f.__name__)
+
             return f
 
         members = inspect.getmembers(self)
@@ -185,31 +239,32 @@ class Cmd(cmd.Cmd):
                             cmds: Mapping[str, Callable],
                             short_cmd: str,
                             quiet: bool=False) -> Callable:
+        """Returns a command handler that matches SHORT_CMD."""
         matches = match_string(short_cmd, cmds, quiet)
 
         if not matches:
-            raise Cmd.CancelCmd('no such command: %s' % (short_cmd,))
+            raise Cmd.SyntaxError('no such command: %s' % (short_cmd,))
         elif len(matches) > 1:
-            raise Cmd.CancelCmd('ambigious command: %s (possible: %s)'
-                                % (short_cmd, ' '.join(matches)))
+            raise Cmd.SyntaxError('ambigious command: %s (possible: %s)'
+                                  % (short_cmd, ' '.join(matches)))
         else:
             return cmds[matches[0]]
 
-    def _get_handler_params(_, handler) -> OrderedMapping[str, inspect.Parameter]:
+    @staticmethod
+    def _get_handler_params(handler: Callable) -> OrderedMapping[str, inspect.Parameter]:
+        """Returns a list of command parameters for given HANDLER."""
         params = inspect.signature(handler).parameters
         params = collections.OrderedDict(list(params.items())[1:]) # drop 'self'
         return params
 
-    def onecmd(self, cmdline):
-        return self.default(cmdline)
-
     def _execute_cmd(self,
-                     cmd: CommandInvocation):
+                     command: CommandInvocation) -> Any:
+        """Executes given COMMAND."""
         all_commands = self._get_all_commands()
-        handler = self._choose_cmd_handler(all_commands, cmd.command)
+        handler = self._choose_cmd_handler(all_commands, command.command)
         formal_params = self._get_handler_params(handler)
         typed_args = self._construct_args(formal_params,
-                                          cmd.named_args, cmd.free_args)
+                                          command.named_args, command.free_args)
 
         return handler(self, **typed_args)
 
@@ -219,8 +274,11 @@ class Cmd(cmd.Cmd):
 
         try:
             return self._execute_cmd(CommandInvocation.from_cmdline(cmdline))
-        except Cmd.CancelCmd as e:
+        except Cmd.SyntaxError as e:
             print(e)
+
+    def onecmd(self, cmdline):
+        return self.default(cmdline)
 
     def cmdloop(self):
         try:

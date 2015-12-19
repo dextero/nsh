@@ -1,3 +1,5 @@
+import collections
+
 from typing import Callable
 
 ProxyCall = object()
@@ -49,5 +51,5 @@ class CallWrapper(object):
                    '\n'.join(stringify_call(call) for call in self.calls)))
 
 def mock(fn):
-    return TestCmd.CallWrapper(fn)
+    return CallWrapper(fn)
 

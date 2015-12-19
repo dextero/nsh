@@ -1,14 +1,19 @@
 import unittest
+import inspect
 
-from ..powercmd import Cmd
+from typing import Callable, Mapping
+
+import test_utils
+
+from cmd import Cmd
 
 class TestableCmd(Cmd):
     def _get_handler_params(cmd: Cmd,
                             handler: Callable) -> Mapping[str, inspect.Parameter]:
         unwrapped_handler = handler
-        if isinstance(handler, TestCmd.CallWrapper):
+        if isinstance(handler, test_utils.CallWrapper):
             unwrapped_handler = handler.fn
-                                    
+
         return Cmd._get_handler_params(cmd, unwrapped_handler)
 
 class TestCmd(unittest.TestCase):
@@ -24,7 +29,7 @@ class TestCmd(unittest.TestCase):
 
     def test_construct_string(self):
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self, str_var: str):
                 pass
 
@@ -34,7 +39,7 @@ class TestCmd(unittest.TestCase):
 
     def test_construct_builtin(self):
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self, int_var: int):
                 pass
 
@@ -47,7 +52,7 @@ class TestCmd(unittest.TestCase):
             pass
 
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self,
                         cls_var: ClassConstructor):
                 pass
@@ -61,7 +66,7 @@ class TestCmd(unittest.TestCase):
             return 'fn'
 
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self,
                         fn_var: fn_constructor):
                 pass
@@ -72,7 +77,7 @@ class TestCmd(unittest.TestCase):
 
     def test_construct_free(self):
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self,
                         first: str,
                         second: int):
@@ -85,7 +90,7 @@ class TestCmd(unittest.TestCase):
 
     def test_construct_named(self):
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self,
                         first: str,
                         second: int):
@@ -101,7 +106,7 @@ class TestCmd(unittest.TestCase):
 
     def test_construct_mixed_free_named(self):
         class TestImpl(TestableCmd):
-            @TestCmd.mock
+            @test_utils.mock
             def do_test(_self,
                         first: str,
                         second: int):
