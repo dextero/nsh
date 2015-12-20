@@ -1,4 +1,5 @@
 import collections
+import re
 import shlex
 
 from typing import Sequence
@@ -21,7 +22,7 @@ class CommandInvocation(object):
         return ('command = %s\nnamed_args (%d):\n%s\nfree_args (%d):\n%s'
                 % (self.command,
                    len(self.named_args),
-                   '\n'.join('  %s=%s' % kv for kv in self.named_args),
+                   '\n'.join('  %s=%s' % kv for kv in self.named_args.items()),
                    len(self.free_args),
                    '\n'.join('  %s' % x for x in self.free_args)))
 

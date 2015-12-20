@@ -265,6 +265,7 @@ class Cmd(cmd.Cmd):
         formal_params = self._get_handler_params(handler)
         typed_args = self._construct_args(formal_params,
                                           command.named_args, command.free_args)
+        print(typed_args)
 
         return handler(self, **typed_args)
 

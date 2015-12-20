@@ -5,7 +5,7 @@ from typing import Callable, Mapping
 
 import test_utils
 
-from cmd import Cmd
+from powercmd.cmd import Cmd
 
 class TestableCmd(Cmd):
     def _get_handler_params(cmd: Cmd,
@@ -14,18 +14,28 @@ class TestableCmd(Cmd):
         if isinstance(handler, test_utils.CallWrapper):
             unwrapped_handler = handler.fn
 
-        return Cmd._get_handler_params(cmd, unwrapped_handler)
+        return Cmd._get_handler_params(unwrapped_handler)
 
 class TestCmd(unittest.TestCase):
-    def test_get_cmd_handler(self):
-        class TestImpl(TestableCmd):
+    def test_get_constructor__callable(self):
+        self.assertEqual(int, Cmd().get_constructor(int))
+
+    def test_get_constructor__not_callable(self):
+        with self.assertRaises(TypeError):
+            Cmd().get_constructor(42)
+
+    def test_get_all_commands(self):
+        class TestImpl(Cmd):
             def do_test(_self):
                 pass
 
-        cmd = TestImpl()
-
-        self.assertEqual(cmd.do_test, cmd._get_cmd_handler('test'))
-        self.assertEqual(cmd.do_test, cmd._get_cmd_handler('t'))
+        expected_commands = {
+            'exit': Cmd.do_exit,
+            'EOF': Cmd.do_EOF,
+            'help': Cmd.do_help,
+            'test': TestImpl.do_test
+        }
+        self.assertEqual(expected_commands, TestImpl()._get_all_commands())
 
     def test_construct_string(self):
         class TestImpl(TestableCmd):

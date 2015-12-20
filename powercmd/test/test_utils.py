@@ -14,7 +14,7 @@ class CallWrapper(object):
     def __enter__(self):
         pass
     def __exit__(self, *exc):
-        if len(self.calls) != 0:
+        if not exc[0] and len(self.calls) != 0:
             raise AssertionError('%d more calls expected' % len(self.calls))
 
     def expect_no_calls(self):
@@ -47,7 +47,7 @@ class CallWrapper(object):
                        '<proxy call>' if call.retval is ProxyCall else repr(call.retval)))
 
         return ('%d calls:\n%s'
-                % (len(self.call_kwargs),
+                % (len(self.calls),
                    '\n'.join(stringify_call(call) for call in self.calls)))
 
 def mock(fn):
