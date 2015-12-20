@@ -11,10 +11,10 @@ import shlex
 import string
 
 from typing import Any, Callable, List, Mapping, Sequence
-from extra_typing import OrderedMapping
+from powercmd.extra_typing import OrderedMapping
 
-from match_string import match_string
-from command_invocation import CommandInvocation
+from powercmd.match_string import match_string
+from powercmd.command_invocation import CommandInvocation
 
 class Cmd(cmd.Cmd):
     """

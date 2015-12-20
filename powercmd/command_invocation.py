@@ -3,7 +3,7 @@ import re
 import shlex
 
 from typing import Sequence
-from extra_typing import OrderedMapping
+from powercmd.extra_typing import OrderedMapping
 
 class CommandInvocation(object):
     def __init__(self,
