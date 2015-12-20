@@ -29,6 +29,9 @@ class CallWrapper(object):
         return self
 
     def __call__(self, _self, **kwargs):
+        if len(self.calls) == 0:
+            raise AssertionError('unexpected call with %s' % (repr(kwargs),))
+
         call = self.calls.pop(0)
 
         if call.args != kwargs:

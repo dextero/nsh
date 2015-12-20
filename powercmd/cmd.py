@@ -75,7 +75,7 @@ class Cmd(cmd.Cmd):
         try:
             handler = self._choose_cmd_handler(all_handlers, topic)
 
-            arg_spec = list(inspect.signature(handler).parameters.items())
+            arg_spec = self._get_handler_params(handler)
             arg_spec.pop(0) # skip 'self'
             args_with_defaults = list((name, param.default) for name, param in arg_spec)
 
@@ -168,7 +168,7 @@ class Cmd(cmd.Cmd):
         """
         Returns the list of possible tab-completions for given LINE.
         """
-        words = line.strip().split()
+        words = line.split(' ')
         if words and '=' in words[-1] and line[-1] not in string.whitespace:
             try:
                 key, val = words[-1].split('=', maxsplit=1)
@@ -191,14 +191,15 @@ class Cmd(cmd.Cmd):
         Returns a list of possible tab-completions for currently typed command.
         """
         if re.match(r'^[^=]+=', word_under_cursor):
+            # TODO: type-specific completion
             return
 
         command = shlex.split(line)[0]
         all_commands = self._get_all_commands()
         handler = self._choose_cmd_handler(all_commands, command, quiet=True)
 
-        arg_spec = list(inspect.signature(handler).parameters.items())
-        return self._complete_impl(line, arg_spec[1:])
+        arg_spec = self._get_handler_params(handler)
+        return self._complete_impl(line, arg_spec)
 
     def _get_all_commands(self) -> Mapping[str, Callable]:
         """Returns all defined commands."""
@@ -265,7 +266,6 @@ class Cmd(cmd.Cmd):
         formal_params = self._get_handler_params(handler)
         typed_args = self._construct_args(formal_params,
                                           command.named_args, command.free_args)
-        print(typed_args)
 
         return handler(self, **typed_args)
 

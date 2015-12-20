@@ -129,3 +129,24 @@ class TestCmd(unittest.TestCase):
         with cmd.do_test.expect_no_calls():
             cmd.default('test first=first 2')
 
+    def test_completedefault(self):
+        class TestImpl(TestableCmd):
+            @test_utils.mock
+            def do_test(_self,
+                        arg_first: str,
+                        arg_second: int,
+                        third: str):
+                pass
+
+        def complete_args(cmdline):
+            space_at = cmdline.rfind(' ')
+            return [cmdline.split()[-1], cmdline, space_at, len(cmdline)]
+
+        cmd = TestImpl()
+
+        self.assertEqual(['arg_first=', 'arg_second=', 'third='],
+                         cmd.completedefault(*complete_args('test ')))
+        self.assertEqual(['arg_first=', 'arg_second='],
+                         cmd.completedefault(*complete_args('test arg')))
+        self.assertEqual(['arg_first='],
+                         cmd.completedefault(*complete_args('test arg_f')))

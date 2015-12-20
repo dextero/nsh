@@ -1,6 +1,6 @@
 import unittest
 
-from command_invocation import CommandInvocation
+from powercmd.command_invocation import CommandInvocation
 
 class TestCommandInvocation(unittest.TestCase):
     def test_parse(self):
