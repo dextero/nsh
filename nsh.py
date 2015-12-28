@@ -42,7 +42,7 @@ class NshCmds(object):
 
 class Nsh(powercmd.Cmd, NshCmds):
     def __init__(self, module):
-        powercmd.Cmd.__init__(self)
+        super(powercmd.Cmd, self).__init__()
 
         self.history = []
         self.curr_mod = '(none)'

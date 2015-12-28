@@ -9,6 +9,8 @@ import inspect
 import re
 import shlex
 import string
+import sys
+import traceback
 
 from typing import Any, Callable, List, Mapping, Sequence
 from powercmd.extra_typing import OrderedMapping
@@ -23,6 +25,11 @@ class Cmd(cmd.Cmd):
     class SyntaxError(Exception):
         """An error raised if the input cannot be parsed as a valid command."""
         pass
+
+    def __init__(self):
+        super(cmd.Cmd, self).__init__()
+
+        self._last_exception = None
 
     # pylint: disable=no-self-use
     def get_command_prefixes(self):
@@ -55,6 +62,13 @@ class Cmd(cmd.Cmd):
         return {
             bytes: lambda text: bytes(text, 'ascii')
         }.get(annotation, ensure_callable(annotation))
+
+    def do_get_error(self):
+        """Displays an exception thrown by last command."""
+        if self._last_exception is None:
+            print('no errors')
+        else:
+            traceback.print_exception(*self._last_exception)
 
     def do_exit(self):
         """Terminates the command loop."""
@@ -270,13 +284,16 @@ class Cmd(cmd.Cmd):
         return handler(self, **typed_args)
 
     def default(self, cmdline):
-        if not cmdline:
-            return self.emptyline()
-
         try:
+            if not cmdline:
+                return self.emptyline()
+
             return self._execute_cmd(CommandInvocation.from_cmdline(cmdline))
-        except Cmd.SyntaxError as e:
+        except Exception as e:
+            self._last_exception = sys.exc_info()
             print(e)
+        else:
+            self._last_exception = None
 
     def onecmd(self, cmdline):
         return self.default(cmdline)
