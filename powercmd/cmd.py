@@ -194,8 +194,8 @@ class Cmd(cmd.Cmd):
                     return ['%s=%s' % (key, x) for x in completer(val)]
                 except AttributeError as e:
                     pass
-            except ValueError:
-                print('ValueError')
+            except ValueError as e:
+                print(e)
 
         matches = match_string(words[-1], possibilities, quiet=True)
         return [x + '=' for x in matches]
