@@ -3,12 +3,14 @@ import collections
 from typing import Callable
 
 ProxyCall = object()
-MockCall = collections.namedtuple('Call', ['args', 'retval'])
+MockCall = collections.namedtuple('Call', ['args', 'kwargs', 'retval'])
 
 class CallWrapper(object):
     def __init__(self,
-                 fn: Callable):
+                 fn: Callable,
+                 static: bool=False):
         self.fn = fn
+        self.static = static
         self.calls = []
 
     def __enter__(self):
@@ -20,25 +22,33 @@ class CallWrapper(object):
     def expect_no_calls(self):
         return self
 
-    def expect_call(self, **kwargs):
-        self.calls.insert(0, MockCall(kwargs, ProxyCall))
+    def expect_call(self, *args, **kwargs):
+        self.calls.insert(0, MockCall(args, kwargs, ProxyCall))
         return self
 
     def returning(self, retval):
         self.calls[0].retval = retval
         return self
 
-    def __call__(self, _self, **kwargs):
+    def __call__(self, *args, **kwargs):
         if len(self.calls) == 0:
             raise AssertionError('unexpected call with %s' % (repr(kwargs),))
 
         call = self.calls.pop(0)
 
-        if call.args != kwargs:
-            raise AssertionError('expected call with %s, got %s'
-                                 % (repr(call.args), repr(kwargs)))
+        actual_args = args if self.static else args[1:]
+
+        if call.args != actual_args:
+            raise AssertionError('expected call with positional args: %s, got %s'
+                                 % (repr(call.args), repr(args)))
+        if call.kwargs != kwargs:
+            raise AssertionError('expected call with named args: %s, got %s'
+                                 % (repr(call.kwargs), repr(kwargs)))
         if call.retval is ProxyCall:
-            return self.fn(_self, **kwargs)
+            if self.static:
+                return self.fn.__func__(*args, **kwargs)
+            else:
+                return self.fn(*args, **kwargs)
         else:
             return call.retval
 
@@ -56,3 +66,5 @@ class CallWrapper(object):
 def mock(fn):
     return CallWrapper(fn)
 
+def static_mock(fn):
+    return CallWrapper(fn, static=True)
