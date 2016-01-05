@@ -87,7 +87,8 @@ class Cmd(cmd.Cmd):
         all_handlers = self._get_all_commands()
 
         try:
-            handler = self._choose_cmd_handler(all_handlers, topic)
+            handler = self._choose_cmd_handler(all_handlers, topic,
+                                               verbose=True)
 
             arg_spec = self._get_handler_params(handler)
             arg_spec.pop(0) # skip 'self'
@@ -197,7 +198,7 @@ class Cmd(cmd.Cmd):
             except ValueError as e:
                 print(e)
 
-        matches = match_string(words[-1], possibilities, quiet=True)
+        matches = match_string(words[-1], possibilities)
         return [x + '=' for x in matches]
 
     # python3.5 implements completedefault arguments as *ignored
@@ -212,7 +213,7 @@ class Cmd(cmd.Cmd):
         """
         command = shlex.split(line)[0]
         all_commands = self._get_all_commands()
-        handler = self._choose_cmd_handler(all_commands, command, quiet=True)
+        handler = self._choose_cmd_handler(all_commands, command)
 
         arg_spec = self._get_handler_params(handler)
         return self._complete_impl(line, arg_spec)
@@ -255,9 +256,9 @@ class Cmd(cmd.Cmd):
     def _choose_cmd_handler(self,
                             cmds: Mapping[str, Callable],
                             short_cmd: str,
-                            quiet: bool=False) -> Callable:
+                            verbose: bool=False) -> Callable:
         """Returns a command handler that matches SHORT_CMD."""
-        matches = match_string(short_cmd, cmds, quiet)
+        matches = match_string(short_cmd, cmds, verbose=verbose)
 
         if not matches:
             raise Cmd.SyntaxError('no such command: %s' % (short_cmd,))
@@ -278,7 +279,8 @@ class Cmd(cmd.Cmd):
                      command: CommandInvocation) -> Any:
         """Executes given COMMAND."""
         all_commands = self._get_all_commands()
-        handler = self._choose_cmd_handler(all_commands, command.command)
+        handler = self._choose_cmd_handler(all_commands, command.command,
+                                           verbose=True)
         formal_params = self._get_handler_params(handler)
         typed_args = self._construct_args(formal_params,
                                           command.named_args, command.free_args)

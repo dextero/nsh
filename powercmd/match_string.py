@@ -96,7 +96,7 @@ TextMatchStrategy.Fuzzy = \
 def _match_string(text: str,
                   possible: List[str],
                   match_strategies: Sequence[Tuple[str, Callable[[str, str], bool]]],
-                  quiet: bool) -> List[str]:
+                  verbose: bool) -> List[str]:
     """
     Attempts to match TEXT to one of POSSIBLE, using multiple MATCH_STRATEGIES.
     Returns after any of MATCH_STRATEGIES finds some matches, i.e. the return
@@ -109,7 +109,7 @@ def _match_string(text: str,
     for match in match_strategies:
         matches = sorted([e for e in possible if match(text, e)])
         if matches:
-            if not quiet:
+            if verbose:
                 print('* %s: %s' % (match.name, ' '.join(matches)))
             return matches
 
@@ -120,14 +120,14 @@ def simple_match_string(text, possible):
         TextMatchStrategy.Exact,
         TextMatchStrategy.Prefix
     ]
-    return _match_string(text, list(possible), match_strategies, quiet=False)
+    return _match_string(text, list(possible), match_strategies, verbose=True)
 
-def match_string(text, possible, quiet=False):
+def match_string(text, possible, verbose=False):
     match_strategies = [
         TextMatchStrategy.Exact,
         TextMatchStrategy.Prefix,
         TextMatchStrategy.SnakeCase,
         TextMatchStrategy.Fuzzy
     ]
-    return _match_string(text, list(possible), match_strategies, quiet=quiet)
+    return _match_string(text, list(possible), match_strategies, verbose=verbose)
 
