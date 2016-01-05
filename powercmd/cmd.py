@@ -192,7 +192,7 @@ class Cmd(cmd.Cmd):
 
                 try:
                     completer = possibilities[key].annotation.powercmd_complete
-                    return ['%s=%s' % (key, x) for x in completer(val)]
+                    return list(completer(val))
                 except AttributeError as e:
                     pass
             except ValueError as e:
