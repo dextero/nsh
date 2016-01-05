@@ -178,7 +178,9 @@ class Cmd(cmd.Cmd):
 
         return result
 
-    def _complete_impl(self, line, possibilities):
+    def _complete_impl(self,
+                       line: str,
+                       possibilities: OrderedMapping[str, inspect.Parameter]) -> List[str]:
         """
         Returns the list of possible tab-completions for given LINE.
         """
@@ -186,8 +188,12 @@ class Cmd(cmd.Cmd):
         if words and '=' in words[-1] and line[-1] not in string.whitespace:
             try:
                 key, val = words[-1].split('=', maxsplit=1)
-                if len(possibilities[key]) > 0:
-                    return match_string(val, possibilities[key], quiet=True)
+
+                try:
+                    completer = possibilities[key].annotation.powercmd_complete
+                    return ['%s=%s' % (key, x) for x in completer(val)]
+                except AttributeError as e:
+                    pass
             except ValueError:
                 print('ValueError')
 
@@ -204,10 +210,6 @@ class Cmd(cmd.Cmd):
         """
         Returns a list of possible tab-completions for currently typed command.
         """
-        if re.match(r'^[^=]+=', word_under_cursor):
-            # TODO: type-specific completion
-            return
-
         command = shlex.split(line)[0]
         all_commands = self._get_all_commands()
         handler = self._choose_cmd_handler(all_commands, command, quiet=True)
