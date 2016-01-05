@@ -150,3 +150,36 @@ class TestCmd(unittest.TestCase):
                          cmd.completedefault(*complete_args('test arg')))
         self.assertEqual(['arg_first='],
                          cmd.completedefault(*complete_args('test arg_f')))
+
+    def test_completedefault_custom_completer(self):
+        class TestType(object):
+            @test_utils.static_mock
+            @staticmethod
+            def powercmd_complete(text):
+                print(text)
+                return ['complete'] if 'complete'.startswith(text) else []
+
+            def __init__(self, s):
+                self.s = s
+
+        class TestImpl(TestableCmd):
+            @test_utils.mock
+            def do_test(_self,
+                        arg: TestType):
+                pass
+
+        def complete_args(cmdline):
+            space_at = cmdline.rfind(' ')
+            return [cmdline.split()[-1], cmdline, space_at, len(cmdline)]
+
+        cmd = TestImpl()
+
+        with TestType.powercmd_complete.expect_no_calls() as _, \
+             cmd.do_test.expect_no_calls() as _:
+            self.assertEqual(['arg='],
+                             cmd.completedefault(*complete_args('test arg')))
+
+        with TestType.powercmd_complete.expect_call('c') as _, \
+             cmd.do_test.expect_no_calls() as _:
+            self.assertEqual(['arg=complete'],
+                             cmd.completedefault(*complete_args('test arg=c')))
