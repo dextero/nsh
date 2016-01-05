@@ -32,6 +32,7 @@ class TestCmd(unittest.TestCase):
         expected_commands = {
             'exit': Cmd.do_exit,
             'EOF': Cmd.do_EOF,
+            'get_error': Cmd.do_get_error,
             'help': Cmd.do_help,
             'test': TestImpl.do_test
         }
