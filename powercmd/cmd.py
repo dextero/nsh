@@ -1,5 +1,37 @@
 """
 powercmd - A generic class to build typesafe line-oriented command interpreters.
+
+As in Cmd module, methods starting with 'do_' are considered command handlers.
+That behavior can be changed by overriding the `get_command_prefixes` method.
+
+All command handler arguments must have a type annotation. Actual values passed
+to the command handler are not strings typed by the user, but objects of
+appropriate types hinted by the annotations, which are constructed as follows:
+
+1. If the type hinted by an annotation contains a static `powercmd_parse`
+   function, it is called with a single string argument. The return value of
+   `powercmd_parse` is passed to the command handler and is expected to be an
+   instance of the annotated type.
+2. Otherwise, the value is created by calling the constructor of the annotated
+   type with a single argument: a string typed by the user.
+
+Example:
+    class SimpleTestCmd(powercmd.Cmd):
+        def do_test_command(self,
+                            int_arg: int):
+            # `test_command 123` translates to `do_test_command(int('123'))`
+            pass
+
+        class CustomType:
+            @staticmethod
+            def powercmd_parse(text):
+                return CustomType()
+
+        def do_test_custom(self,
+                           custom_arg: CustomType):
+            # `test_custom 123` translates to
+            # `do_test_custom(CustomType.powercmd_parse('123'))`
+            pass
 """
 
 import cmd
