@@ -186,15 +186,16 @@ class Cmd(cmd.Cmd):
                                                verbose=True)
 
             arg_spec = self._get_handler_params(handler)
-            arg_spec.pop(0) # skip 'self'
-            args_with_defaults = list((name, param.default) for name, param in arg_spec)
+            args_with_defaults = list((name, param.default)
+                                      for name, param in arg_spec.items())
 
-            print('usage: %s %s'
+            print('usage: %s %s\n\n%s'
                   % (topic,
                      ' '.join('%s=%s' % (arg, repr(default))
                               if default is not inspect.Parameter.empty
                               else str(arg)
-                              for arg, default in args_with_defaults)))
+                              for arg, default in args_with_defaults),
+                     handler.__doc__ or ''))
         except Cmd.SyntaxError:
             print('no such command: %s' % (topic,))
             print('available commands: %s' % (' '.join(sorted(all_handlers)),))
