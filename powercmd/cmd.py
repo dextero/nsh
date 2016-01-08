@@ -159,7 +159,9 @@ class Cmd(cmd.Cmd):
         }.get(annotation, lambda _: [])
 
     def do_get_error(self):
-        """Displays an exception thrown by last command."""
+        """
+        Displays an exception thrown by last command.
+        """
         if self._last_exception is None:
             print('no errors')
         else:
@@ -178,7 +180,9 @@ class Cmd(cmd.Cmd):
 
     def do_help(self,
                 topic: str=''):
-        """Displays a description of given command."""
+        """
+        Displays a description of given command or lists all available commands.
+        """
         all_handlers = self._get_all_commands()
 
         try:
@@ -189,13 +193,13 @@ class Cmd(cmd.Cmd):
             args_with_defaults = list((name, param.default)
                                       for name, param in arg_spec.items())
 
-            print('usage: %s %s\n\n%s'
-                  % (topic,
+            print('%s\n\nARGUMENTS: %s %s\n'
+                  % (handler.__doc__ or 'No details available.',
+                     topic,
                      ' '.join('%s=%s' % (arg, repr(default))
                               if default is not inspect.Parameter.empty
                               else str(arg)
-                              for arg, default in args_with_defaults),
-                     handler.__doc__ or ''))
+                              for arg, default in args_with_defaults)))
         except Cmd.SyntaxError:
             print('no such command: %s' % (topic,))
             print('available commands: %s' % (' '.join(sorted(all_handlers)),))
