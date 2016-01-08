@@ -31,3 +31,7 @@ class TestSplitList(unittest.TestCase):
     def test_unmatched_paren(self):
         with self.assertRaises(ValueError):
             list(split_list('(foo,bar'))
+
+    def test_unmatched_paren_allowed(self):
+        self.assertEqual(['(foo,bar'],
+                         list(split_list('(foo,bar', allow_unmatched=True)))

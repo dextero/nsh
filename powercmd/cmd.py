@@ -116,7 +116,13 @@ class Cmd(cmd.Cmd):
                 raise TypeError('List may only have one type parameter, got %s'
                                 % (annotation,))
             internal_type = annotation.__parameters__[0]
-            return self.get_completer(internal_type)
+            completer = self.get_completer(internal_type)
+
+            def complete_list(text):
+                args = list(split_list(text, allow_unmatched=True))
+                return completer(args[-1])
+
+            return complete_list
 
         raise NotImplementedError('generic constructor for %s not implemented'
                                   % (annotation,))

@@ -7,7 +7,8 @@ _DELIMITERS = {
 }
 
 def split_list(text: str,
-               separator: str=','):
+               separator: str=',',
+               allow_unmatched: bool=False):
     if len(separator) != 1:
         raise ValueError('only single-character separators are supported')
     if separator in _DELIMITERS:
@@ -28,7 +29,7 @@ def split_list(text: str,
             yield text[start:idx]
             start = idx + 1
 
-    if stack:
+    if not allow_unmatched and stack:
         raise ValueError('text contains unmatched delimiters: %s (text = %s)'
                          % (''.join(stack), text))
 
