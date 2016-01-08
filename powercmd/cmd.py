@@ -11,10 +11,12 @@ import shlex
 import string
 import sys
 import traceback
+import typing
 
 from typing import Any, Callable, List, Mapping, Sequence
 from powercmd.extra_typing import OrderedMapping
 
+from powercmd.split_list import split_list
 from powercmd.match_string import match_string
 from powercmd.command_invocation import CommandInvocation
 
@@ -46,6 +48,48 @@ class Cmd(cmd.Cmd):
         """
         return {'do_': ''}
 
+    def get_generic_constructor(self,
+                                annotation: typing.GenericMeta) -> Callable[[str], Any]:
+        """
+        Returns a function that constructs a generic type from given string.
+        It is used for types like List[Foo] to apply a Foo constructor for each
+        list element.
+        """
+        if annotation.__origin__ == List[typing.T]:
+            if len(annotation.__parameters__) != 1:
+                raise TypeError('List may only have one type parameter, got %s'
+                                % (annotation,))
+            internal_type = annotation.__parameters__[0]
+            internal_ctor = self.get_constructor(internal_type)
+
+            def construct_list(text):
+                if text[0] == '[' and text[-1] == ']':
+                    text = text[1:-1]
+                return [internal_ctor(txt) for txt in split_list(text)]
+
+            return construct_list
+
+        raise NotImplementedError('generic constructor for %s not implemented'
+                                  % (annotation,))
+
+    def get_generic_completer(self,
+                              annotation: typing.GenericMeta) -> Callable[[str], Any]:
+        """
+        Returns a function that provides a list of completions given a string
+        prefix.  It is used for types like List[Foo] to perform
+        argument-specific tab-completion.
+        """
+        if annotation.__origin__ == List[typing.T]:
+            if len(annotation.__parameters__) != 1:
+                raise TypeError('List may only have one type parameter, got %s'
+                                % (annotation,))
+            internal_type = annotation.__parameters__[0]
+            return self.get_completer(internal_type)
+
+        raise NotImplementedError('generic constructor for %s not implemented'
+                                  % (annotation,))
+
+
     # pylint: disable=no-self-use
     def get_constructor(self,
                         annotation: Any) -> Callable[[str], Any]:
@@ -59,9 +103,28 @@ class Cmd(cmd.Cmd):
                 raise TypeError('invalid type: ' + repr(arg))
             return arg
 
+        if isinstance(annotation, typing.GenericMeta):
+            return self.get_generic_constructor(annotation)
+        if hasattr(annotation, 'powercmd_parse'):
+            return getattr(annotation, 'powercmd_parse')
+
         return {
-            bytes: lambda text: bytes(text, 'ascii')
+            bytes: lambda text: bytes(text, 'ascii'),
         }.get(annotation, ensure_callable(annotation))
+
+    def get_completer(self,
+                      annotation: Any) -> Callable[[str], List[str]]:
+        """
+        For given annotation, returns a function that lists possible
+        tab-completions for given prefix.
+        """
+        if isinstance(annotation, typing.GenericMeta):
+            return self.get_generic_completer(annotation)
+        if hasattr(annotation, 'powercmd_complete'):
+            return annotation.powercmd_complete
+
+        return {
+        }.get(annotation, lambda _: [])
 
     def do_get_error(self):
         """Displays an exception thrown by last command."""
@@ -191,7 +254,7 @@ class Cmd(cmd.Cmd):
                 key, val = words[-1].split('=', maxsplit=1)
 
                 try:
-                    completer = possibilities[key].annotation.powercmd_complete
+                    completer = self.get_completer(possibilities[key].annotation)
                     return list(completer(val))
                 except AttributeError as e:
                     pass

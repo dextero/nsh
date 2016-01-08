@@ -182,5 +182,5 @@ class TestCmd(unittest.TestCase):
 
         with TestType.powercmd_complete.expect_call('c') as _, \
              cmd.do_test.expect_no_calls() as _:
-            self.assertEqual(['arg=complete'],
+            self.assertEqual(['complete'],
                              cmd.completedefault(*complete_args('test arg=c')))
