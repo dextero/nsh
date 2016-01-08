@@ -7,7 +7,7 @@ import sys
 import os
 import inspect
 import imp
-from typing import Mapping
+from typing import Mapping, List
 
 import powercmd
 
@@ -83,6 +83,29 @@ class Nsh(powercmd.Cmd, NshCmds):
             self.write_test_case_cleanup(f)
 
         print('saved to %s' % (filename,))
+
+    @staticmethod
+    def list_connectors() -> List[str]:
+        connectors = []
+
+        mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors')
+        sys.path.insert(0, mod_path)
+
+        for filename in os.listdir(mod_path):
+            if not filename.endswith('.py'):
+                continue
+
+            filename = filename[:-3]
+            try:
+                mod = __import__(filename)
+                if any(isinstance(x, type) and issubclass(x, NshCmds)
+                        for x in mod.__dict__.values()):
+                    connectors.append(filename)
+            except:
+                pass
+
+        sys.path.pop(0)
+        return connectors
 
     def nsh_mod(self,
                 mod_name: str):
