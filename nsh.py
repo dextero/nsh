@@ -1,12 +1,13 @@
 # coding=utf-8
 
 import cmd
-import time
 import collections
-import sys
-import os
-import inspect
 import imp
+import inspect
+import os
+import readline
+import sys
+import time
 from typing import Mapping, List
 
 import powercmd
@@ -100,6 +101,8 @@ class NshCmds(object):
         """
         pass
 
+NSH_HISTORY_FILE = os.path.join(os.path.expanduser('~'), '.nsh_history')
+
 class Nsh(powercmd.Cmd, NshCmds):
     def __init__(self, module):
         super(powercmd.Cmd, self).__init__()
@@ -109,6 +112,11 @@ class Nsh(powercmd.Cmd, NshCmds):
         self.set_prompt('(none)')
 
         self.nsh_mod(module)
+
+        try:
+            readline.read_history_file(NSH_HISTORY_FILE)
+        except FileNotFoundError:
+            pass
 
     def get_command_prefixes(self) -> Mapping[str, str]:
         prefixes = powercmd.Cmd.get_command_prefixes(self)
@@ -250,6 +258,11 @@ class Nsh(powercmd.Cmd, NshCmds):
                     return
 
         print('message not found')
+
+    def onecmd(self, cmdline):
+        result = self.default(cmdline)
+        readline.write_history_file(NSH_HISTORY_FILE)
+        return result
 
     def emptyline(self):
         while self.try_read():
