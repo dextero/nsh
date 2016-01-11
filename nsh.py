@@ -183,15 +183,15 @@ class Nsh(powercmd.Cmd, NshCmds):
         sys.path.insert(0, mod_path)
 
         for filename in os.listdir(mod_path):
-            if not filename.endswith('.py'):
+            filepath = os.path.join(mod_path, filename)
+            if not os.path.isdir(filepath):
                 continue
 
-            filename = filename[:-3]
             try:
                 mod = __import__(filename)
                 if any(isinstance(x, type) and issubclass(x, NshCmds)
                         for x in mod.__dict__.values()):
-                    connectors.append(filename)
+                    connectors.append(os.path.basename(filepath))
             except:
                 pass
 
