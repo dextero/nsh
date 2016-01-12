@@ -1,1 +1,1 @@
-from powercmd.cmd import Cmd
+from .cmd import Cmd

@@ -105,7 +105,7 @@ NSH_HISTORY_FILE = os.path.join(os.path.expanduser('~'), '.nsh_history')
 
 class Nsh(powercmd.Cmd, NshCmds):
     def __init__(self, module):
-        super(powercmd.Cmd, self).__init__()
+        super(Nsh, self).__init__()
 
         self.history = []
         self.curr_mod = '(none)'
@@ -230,8 +230,7 @@ class Nsh(powercmd.Cmd, NshCmds):
                     args = ', '.join(args_list[1:])
                     print('  %s %s' % (name[3:], args))
 
-        class NshSubclass(Nsh): pass
-        NshSubclass.__bases__ += bases
+        class NshSubclass(Nsh, *bases): pass
 
         self.__class__ = NshSubclass
         self.init()

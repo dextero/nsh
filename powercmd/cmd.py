@@ -61,7 +61,7 @@ class Cmd(cmd.Cmd):
         pass
 
     def __init__(self):
-        super(cmd.Cmd, self).__init__()
+        super(Cmd, self).__init__()
 
         self._last_exception = None
 
