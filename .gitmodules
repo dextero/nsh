@@ -1,3 +1,4 @@
 [submodule "connectors/nsh-lwm2m"]
 	path = connectors/nsh-lwm2m
 	url = https://github.com/AVSystem/nsh-lwm2m
+	branch = master
