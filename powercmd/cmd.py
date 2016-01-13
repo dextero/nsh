@@ -260,7 +260,7 @@ class Cmd(cmd.Cmd):
             raise Cmd.SyntaxError('too many free arguments: expected at most %d'
                                   % (len(formal),))
 
-        result = copy.deepcopy(actual)
+        result = copy.copy(actual)
         for name, value in zip(formal, free):
             if name in result:
                 raise Cmd.SyntaxError('cannot assign free argument to %s: '
@@ -277,7 +277,7 @@ class Cmd(cmd.Cmd):
         Returns the ACTUAL dict extended by default values of unassigned FORMAL
         parameters.
         """
-        result = copy.deepcopy(actual)
+        result = copy.copy(actual)
         for name, param in formal.items():
             if (name not in result
                     and param.default is not inspect.Parameter.empty):
