@@ -191,7 +191,10 @@ class Nsh(powercmd.Cmd, NshCmds):
                 mod = __import__(filename)
                 if any(isinstance(x, type) and issubclass(x, NshCmds)
                         for x in mod.__dict__.values()):
-                    connectors.append(os.path.basename(filepath))
+                    name = os.path.basename(filepath)
+                    if name.startswith('nsh-'):
+                        name = name[4:]
+                    connectors.append(name)
             except:
                 pass
 
@@ -212,6 +215,8 @@ class Nsh(powercmd.Cmd, NshCmds):
         sys.path.insert(0, mod_path)
         try:
             mod = __import__(mod_name)
+        except ImportError:
+            mod = __import__('nsh-' + mod_name)
         finally:
             sys.path.pop(0)
 
