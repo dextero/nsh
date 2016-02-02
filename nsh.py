@@ -176,6 +176,42 @@ class Nsh(powercmd.Cmd, NshCmds):
         print('saved to %s' % (filename,))
 
     @staticmethod
+    def find_connector_module(connector_name: str) -> object or None:
+        """
+        Attempts to load a specific connector given by its CONNECTOR_NAME.
+        """
+        import importlib
+
+        mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors')
+        sys.path.insert(0, mod_path)
+
+        prefixes = ['', 'nsh-']
+        suffixes = ['.nsh', '']
+
+        try:
+            for prefix in prefixes:
+                for suffix in suffixes:
+                    mod_name = prefix + connector_name + suffix
+                    try:
+                        return importlib.import_module(mod_name + '.nsh')
+                    except ImportError:
+                        pass
+        finally:
+            sys.path.pop(0)
+
+    @staticmethod
+    def get_cmds_classes(connector_name: str) -> Mapping[str, object]:
+        """
+        Returns a list of NshCmds subclasses found in CONNECTOR_NAME.
+        """
+        mod = Nsh.find_connector_module(connector_name)
+        if not mod:
+            return {}
+
+        return tuple([c for c in mod.__dict__.values()
+                      if isinstance(c, type) and issubclass(c, NshCmds)])
+
+    @staticmethod
     def list_connectors() -> List[str]:
         connectors = []
 
@@ -187,16 +223,8 @@ class Nsh(powercmd.Cmd, NshCmds):
             if not os.path.isdir(filepath):
                 continue
 
-            try:
-                mod = __import__(filename)
-                if any(isinstance(x, type) and issubclass(x, NshCmds)
-                        for x in mod.__dict__.values()):
-                    name = os.path.basename(filepath)
-                    if name.startswith('nsh-'):
-                        name = name[4:]
-                    connectors.append(name)
-            except:
-                pass
+            if Nsh.get_cmds_classes(filename):
+                connectors.append(filename)
 
         sys.path.pop(0)
         return connectors
@@ -211,21 +239,9 @@ class Nsh(powercmd.Cmd, NshCmds):
         """
 
         print('loading module %s' % (mod_name,))
-        mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'connectors')
-        sys.path.insert(0, mod_path)
-        try:
-            mod = __import__(mod_name)
-        except ImportError:
-            mod = __import__('nsh-' + mod_name)
-        finally:
-            sys.path.pop(0)
 
-        if not mod:
-            raise powercmd.Cmd.CancelCmd('cannot load module: %s' % mod_name)
         self.curr_mod = mod_name
-
-        bases = tuple([c for c in mod.__dict__.values()
-                       if isinstance(c, type) and issubclass(c, NshCmds)])
+        bases = Nsh.get_cmds_classes(mod_name)
 
         for base in bases:
             for name, member in base.__dict__.items():
