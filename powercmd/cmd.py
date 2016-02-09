@@ -81,7 +81,14 @@ class Cmd(cmd.Cmd):
         return {'do_': ''}
 
     def _get_list_ctor(self,
-                       annotation: typing.GenericMeta) -> Callable[[str], Any]:
+                       annotation: typing.List) -> Callable[[str], typing.List]:
+        """
+        Returns a function that parses a string representation of a list
+        defined by ANNOTATION.
+
+        Examples:
+            "[1,2,3]" -> List[int]
+        """
         if len(annotation.__parameters__) != 1:
             raise TypeError('List may only have one type parameter, got %s'
                             % (annotation,))
@@ -96,10 +103,17 @@ class Cmd(cmd.Cmd):
         return construct_list
 
     def _get_tuple_ctor(self,
-                        annotation: typing.GenericMeta) -> Callable[[str], Any]:
+                        annotation: typing.Tuple) -> Callable[[str], typing.Tuple]:
+        """
+        Returns a function that parses a string representation of a tuple
+        defined by ANNOTATION.
+
+        Examples:
+            "(1,foo)" -> Tuple[int, str]
+        """
         internal_types = getattr(annotation, '__tuple_params__', None)
         if internal_types is None:
-            raise TypeError('TODO')
+            raise TypeError('%s is not a tuple type' % (repr(annotation),))
 
         def construct_tuple(text):
             if text[0] == '(' and text[-1] == ')':
@@ -134,6 +148,9 @@ class Cmd(cmd.Cmd):
 
     def _is_generic_type(self,
                          annotation: Any) -> bool:
+        """
+        Checks if the type described by ANNOTATION is a generic one.
+        """
         return (isinstance(annotation, typing.GenericMeta) # List[T]
                 or hasattr(annotation, '__tuple_params__')) # Tuple[...]
 
