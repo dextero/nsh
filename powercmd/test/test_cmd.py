@@ -1,7 +1,7 @@
 import unittest
 import inspect
 
-from typing import Callable, Mapping
+from typing import Callable, Mapping, List, Tuple
 
 import test_utils
 
@@ -151,6 +151,28 @@ class TestCmd(unittest.TestCase):
                          cmd.completedefault(*complete_args('test arg')))
         self.assertEqual(['arg_first='],
                          cmd.completedefault(*complete_args('test arg_f')))
+
+    def test_construct_list(self):
+        class TestImpl(TestableCmd):
+            @test_utils.mock
+            def do_test(_self,
+                        arg: List[int]):
+                pass
+
+        cmd = TestImpl()
+        with cmd.do_test.expect_call(arg=[3,42]):
+            cmd.default('test arg=[3,42]')
+
+    def test_construct_tuple(self):
+        class TestImpl(TestableCmd):
+            @test_utils.mock
+            def do_test(_self,
+                        arg: Tuple[float, str]):
+                pass
+
+        cmd = TestImpl()
+        with cmd.do_test.expect_call(arg=(float(3),'foo')):
+            cmd.default('test arg=(3,foo)')
 
     def test_completedefault_custom_completer(self):
         class TestType(object):

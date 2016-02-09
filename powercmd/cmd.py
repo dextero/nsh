@@ -80,6 +80,43 @@ class Cmd(cmd.Cmd):
         """
         return {'do_': ''}
 
+    def _get_list_ctor(self,
+                       annotation: typing.GenericMeta) -> Callable[[str], Any]:
+        if len(annotation.__parameters__) != 1:
+            raise TypeError('List may only have one type parameter, got %s'
+                            % (annotation,))
+        internal_type = annotation.__parameters__[0]
+        internal_ctor = self.get_constructor(internal_type)
+
+        def construct_list(text):
+            if text[0] == '[' and text[-1] == ']':
+                text = text[1:-1]
+            return [internal_ctor(txt) for txt in split_list(text)]
+
+        return construct_list
+
+    def _get_tuple_ctor(self,
+                        annotation: typing.GenericMeta) -> Callable[[str], Any]:
+        internal_types = getattr(annotation, '__tuple_params__', None)
+        if internal_types is None:
+            raise TypeError('TODO')
+
+        def construct_tuple(text):
+            if text[0] == '(' and text[-1] == ')':
+                text = text[1:-1]
+
+            sub_txts = list(split_list(text))
+            if len(sub_txts) != len(internal_types):
+                raise TypeError('mismatched lengths: %d strings, %d tuple types' % (len(sub_txts), len(internal_types)))
+
+            tuple_list = []
+            for cls, txt in zip(internal_types, sub_txts):
+                tuple_list.append(self.get_constructor(cls)(txt))
+
+            return tuple(tuple_list)
+
+        return construct_tuple
+
     def get_generic_constructor(self,
                                 annotation: typing.GenericMeta) -> Callable[[str], Any]:
         """
@@ -87,22 +124,18 @@ class Cmd(cmd.Cmd):
         It is used for types like List[Foo] to apply a Foo constructor for each
         list element.
         """
-        if annotation.__origin__ == List[typing.T]:
-            if len(annotation.__parameters__) != 1:
-                raise TypeError('List may only have one type parameter, got %s'
-                                % (annotation,))
-            internal_type = annotation.__parameters__[0]
-            internal_ctor = self.get_constructor(internal_type)
-
-            def construct_list(text):
-                if text[0] == '[' and text[-1] == ']':
-                    text = text[1:-1]
-                return [internal_ctor(txt) for txt in split_list(text)]
-
-            return construct_list
+        if getattr(annotation, '__origin__', None) == List[typing.T]:
+            return self._get_list_ctor(annotation)
+        elif getattr(annotation, '__tuple_params__', None) is not None:
+            return self._get_tuple_ctor(annotation)
 
         raise NotImplementedError('generic constructor for %s not implemented'
                                   % (annotation,))
+
+    def _is_generic_type(self,
+                         annotation: Any) -> bool:
+        return (isinstance(annotation, typing.GenericMeta) # List[T]
+                or hasattr(annotation, '__tuple_params__')) # Tuple[...]
 
     def get_generic_completer(self,
                               annotation: typing.GenericMeta) -> Callable[[str], Any]:
@@ -141,7 +174,7 @@ class Cmd(cmd.Cmd):
                 raise TypeError('invalid type: ' + repr(arg))
             return arg
 
-        if isinstance(annotation, typing.GenericMeta):
+        if self._is_generic_type(annotation):
             return self.get_generic_constructor(annotation)
         if hasattr(annotation, 'powercmd_parse'):
             return getattr(annotation, 'powercmd_parse')
