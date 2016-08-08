@@ -1,4 +1,7 @@
-from typing import Mapping
+from typing import Mapping, Generic, TypeVar
 
-class OrderedMapping(Mapping):
+T = TypeVar('T')
+S = TypeVar('S')
+
+class OrderedMapping(Mapping[T, S]):
     pass
